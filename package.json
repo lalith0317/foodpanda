@@ -1,0 +1,16 @@
+{
+  "name": "foodpanda-otp",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "nodemailer": "^7.0.4",
+    "twilio": "^4.11.0"
+  }
+}

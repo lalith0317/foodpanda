@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Food Panda</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #fff3e0 url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Foodpanda_Logo.svg/1024px-Foodpanda_Logo.svg.png') no-repeat center center fixed;
+      background-size: 300px;
+      background-blend-mode: lighten;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: rgba(255,255,255,0.95);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    h1, h2, h3 {
+      text-align: center;
+      color: #d84315;
+    }
+
+    input, button, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #ff6f00;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #e65100;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background: #ffe0b2;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .section { display: none; }
+    .visible { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="container section visible" id="loginSection">
+  <h1>Food Panda</h1>
+  <h2>Login</h2>
+  <input type="email" id="email" placeholder="Enter your email" pattern=".+@.+\..+" required>
+<button onclick="sendOTP()">Send OTP</button>
+  <div id="otpSection" class="section">
+    <input type="text" id="otp" placeholder="Enter OTP">
+    <button onclick="verifyOTP()">Login</button>
+  </div>
+</div>
+
+<div class="container section" id="locationSection">
+  <h3>Enter Delivery Location</h3>
+  <input type="text" id="location" placeholder="Enter your location">
+  <button onclick="getCurrentLocation()">📍 Locate Me</button>
+  <select id="savedLocations" onchange="selectSavedLocation(this.value)">
+    <option value="">-- Select a Saved Location --</option>
+    <option value="Hyderabad">Hyderabad</option>
+    <option value="Bangalore">Bangalore</option>
+    <option value="Mumbai">Mumbai</option>
+    <option value="Delhi">Delhi</option>
+  </select>
+  <button onclick="goToRestaurantSearch()">Next</button>
+</div>
+
+<div class="container section" id="restaurantSection">
+  <h3>Nearby Restaurants</h3>
+  <ul id="restaurantList"></ul>
+</div>
+
+<div class="container section" id="menuSection">
+  <h3>Menu</h3>
+  <ul id="menuItems"></ul>
+</div>
+
+<div class="container section" id="cartSection">
+  <h3>Cart</h3>
+  <ul id="cartItems"></ul>
+  <button onclick="goToAddress()">Proceed to Address</button>
+</div>
+
+<div class="container section" id="addressSection">
+  <h3>Enter Delivery Address</h3>
+  <input type="text" id="address" placeholder="Your delivery address">
+  <button onclick="goToPayment()">Proceed to Pay</button>
+</div>
+
+<div class="container section" id="paymentSection">
+  <h3>Payment Page</h3>
+  <select id="paymentMethod">
+    <option value="cod">Cash on Delivery</option>
+    <option value="debit">Debit Card</option>
+    <option value="credit">Credit Card</option>
+    <option value="wallet">FoodPanda Wallet</option>
+  </select>
+  <button onclick="confirmPayment()">Confirm Payment</button>
+</div>
+
+<div class="container section" id="trackingSection">
+  <h3>Order Tracking</h3>
+  <p id="orderStatus">Your food is being prepared 🍳</p>
+  <p><strong>Delivery by:</strong> <span id="deliveryBoyName"></span></p>
+  <p><strong>Estimated Time:</strong> <span id="eta">30</span> mins</p>
+  <a id="callDelivery" href="#" style="color: #ff6f00; font-weight: bold;">📞 Call Delivery Boy</a>
+  <div style="margin-top: 20px;">
+    <iframe id="mapFrame" width="100%" height="300" style="border:0;" allowfullscreen loading="lazy"></iframe>
+  </div>
+</div>
+
+<script>
+let cart = [];
+let serverSentOTP = ""; // Store OTP received from backend
+
+const restaurantData = [
+  { name: "Pizza Palace", city: "Hyderabad" },
+  { name: "Burger House", city: "Hyderabad" },
+  { name: "Biryani Nation", city: "Hyderabad" },
+  { name: "Tandoori Treats", city: "Hyderabad" },
+  { name: "Sushi World", city: "Bangalore" },
+  { name: "Mumbai Masala", city: "Mumbai" },
+  { name: "Delhi Delights", city: "Delhi" }
+];
+
+const database = {
+  "Pizza Palace": ["Pepperoni Pizza", "Veggie Pizza"],
+  "Burger House": ["Cheeseburger", "Veggie Burger"],
+  "Sushi World": ["California Roll", "Tuna Sashimi"],
+  "Biryani Nation": ["Hyderabadi Biryani", "Egg Biryani"],
+  "Tandoori Treats": ["Tandoori Chicken", "Paneer Tikka"],
+  "Mumbai Masala": ["Pav Bhaji", "Vada Pav"],
+  "Delhi Delights": ["Chole Bhature", "Rajma Chawal"]
+};
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.getElementById(id).classList.add('visible');
+}
+
+// ✅ Send OTP via Email
+function sendOTP() {
+  const email = document.getElementById("email").value;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailPattern.test(email)) {
+    alert("Please enter a valid email address.");
+    return;
+  }
+
+  fetch("http://localhost:3000/send-otp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        serverSentOTP = data.otp;
+        alert("OTP sent to your email!");
+        document.getElementById("otpSection").classList.add("visible");
+      } else {
+        alert("Failed to send OTP. Try again.");
+      }
+    })
+    .catch(err => {
+      console.error("Error:", err);
+      alert("Server error.");
+    });
+}
+
+// ✅ Verify OTP entered by user
+function verifyOTP() {
+  const enteredOTP = document.getElementById("otp").value.trim();
+  if (enteredOTP === serverSentOTP) {
+    showSection("locationSection");
+  } else {
+    alert("Incorrect OTP. Please check your email and try again.");
+  }
+}
+
+function selectSavedLocation(value) {
+  document.getElementById("location").value = value;
+}
+
+function getCurrentLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById("location").value = "Hyderabad"; // simplify for demo
+    });
+  } else {
+    alert("Geolocation not supported.");
+  }
+}
+
+function goToRestaurantSearch() {
+  const city = document.getElementById("location").value.toLowerCase();
+  const list = document.getElementById("restaurantList");
+  list.innerHTML = "";
+
+  const filtered = restaurantData.filter(r => r.city.toLowerCase().includes(city));
+  if (filtered.length === 0) {
+    list.innerHTML = "<li>No restaurants available in this location.</li>";
+  } else {
+    filtered.forEach(r => {
+      const li = document.createElement("li");
+      li.textContent = r.name;
+      li.onclick = () => loadMenu(r.name);
+      list.appendChild(li);
+    });
+  }
+
+  showSection("restaurantSection");
+}
+
+function loadMenu(restaurant) {
+  showSection("menuSection");
+  const menu = database[restaurant];
+  const menuList = document.getElementById("menuItems");
+  menuList.innerHTML = "";
+  menu.forEach(item => {
+    const li = document.createElement("li");
+    li.innerHTML = `${item}<br/>
+      Quantity: <input type='number' min='1' value='1' id='qty-${item}' style='width:60px' />
+      <button onclick="addToCart('${item}')">Add</button>`;
+    menuList.appendChild(li);
+  });
+}
+
+function addToCart(item) {
+  const qty = parseInt(document.getElementById(`qty-${item}`).value);
+  const existing = cart.find(c => c.name === item);
+  if (existing) existing.quantity += qty;
+  else cart.push({ name: item, quantity: qty });
+  updateCart();
+  showSection("cartSection");
+}
+
+function updateCart() {
+  const cartList = document.getElementById("cartItems");
+  cartList.innerHTML = "";
+  cart.forEach((ci, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${ci.name} - Quantity:
+      <input type='number' value='${ci.quantity}' min='1' onchange='changeQty(${i}, this.value)' style='width:60px' />
+      <button onclick='removeItem(${i})'>Remove</button>`;
+    cartList.appendChild(li);
+  });
+}
+
+function changeQty(index, qty) {
+  cart[index].quantity = parseInt(qty);
+  updateCart();
+}
+
+function removeItem(index) {
+  cart.splice(index, 1);
+  updateCart();
+}
+
+function goToAddress() {
+  showSection("addressSection");
+}
+
+function goToPayment() {
+  const address = document.getElementById("address").value;
+  if (!address.trim()) {
+    alert("Please enter address.");
+    return;
+  }
+  showSection("paymentSection");
+}
+
+function confirmPayment() {
+  const method = document.getElementById("paymentMethod").value;
+  alert("Paid via: " + method);
+
+  const deliveryBoys = [
+    { name: "Ravi Kumar", phone: "+919876543210" },
+    { name: "Aman Sharma", phone: "+919812345678" },
+    { name: "Deepak Yadav", phone: "+919811112233" }
+  ];
+  const assigned = deliveryBoys[Math.floor(Math.random() * deliveryBoys.length)];
+
+  document.getElementById("deliveryBoyName").textContent = assigned.name;
+  document.getElementById("callDelivery").href = `tel:${assigned.phone}`;
+  document.getElementById("eta").textContent = 30;
+
+  // Map route (fixed example)
+  document.getElementById("mapFrame").src =
+    "https://www.google.com/maps/embed/v1/directions?key=YOUR_API_KEY&origin=17.385,78.4867&destination=17.387,78.4800";
+
+  showSection("trackingSection");
+
+  setTimeout(() => {
+    document.getElementById("orderStatus").textContent = "🍽️ Order picked up by " + assigned.name;
+  }, 7000);
+
+  setTimeout(() => {
+    document.getElementById("orderStatus").textContent = "🚚 On the way – arriving in 30 mins!";
+  }, 15000);
+}
+</script>
+</body>
+</html>
